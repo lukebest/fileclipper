@@ -90,8 +90,8 @@ def warpImage(image, box):
 
 
 if __name__ == '__main__':
-    path = r'C:\Users\wzg\Desktop\test.jpg'
-    outpath = r'C:\Users\wzg\Desktop\result.jpg'
+    path = '3.jpg'
+    outpath = 'new_result.jpg'
     image = cv2.imread(path)
     ratio = 900 / image.shape[0]
     img = resizeImg(image)
