@@ -1,0 +1,4 @@
+*.jpg
+!test.jpg
+*.zip
+__pycache__
