@@ -1,34 +1,34 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import cv2
 import numpy as np
 
+import cv2
 
-# 固定尺寸
-def resizeImg(image, height=900):
-    h, w = image.shape[:2]
-    pro = height / h
-    size = (int(w * pro), int(height))
-    img = cv2.resize(image, size)
-    return img
+# 目标图片大小
+TARGET_H = 672
+TARGET_W = 1369
+# 预加黑边大小
+EDGE = 20
 
 
-# 边缘检测
-def getCanny(image):
-    # 高斯模糊
-    binary = cv2.GaussianBlur(image, (3, 3), 2, 2)
-    # 边缘检测
-    binary = cv2.Canny(binary, 60, 240, apertureSize=3)
-    # 膨胀操作，尽量使边缘闭合
-    kernel = np.ones((3, 3), np.uint8)
-    binary = cv2.dilate(binary, kernel, iterations=1)
-    return binary
+def get_binary_img(img, kernel_n):
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  # 转化为灰图
+    _, dst = cv2.threshold(img, 0, 255, cv2.THRESH_OTSU)  # otsu算法二值化
+    kernel = np.ones((kernel_n, kernel_n), np.uint8)
+    closed = cv2.morphologyEx(dst, cv2.MORPH_CLOSE, kernel)  # 形态闭运算，去除票据内容
+    # 下面加上四边黑框
+    closed[:EDGE, :] = 0
+    closed[-EDGE:, :] = 0
+    closed[:, :EDGE] = 0
+    closed[:, -EDGE:] = 0
+    return closed
 
 
 # 求出面积最大的轮廓
 def findMaxContour(image):
     # 寻找边缘
-    _, contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    contours, _ = cv2.findContours(
+        image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     # 计算面积
     max_area = 0.0
     max_contour = []
@@ -50,15 +50,6 @@ def getBoxPoint(contour):
     return approx
 
 
-# 适配原四边形点集
-def adaPoint(box, pro):
-    box_pro = box
-    if pro != 1.0:
-        box_pro = box/pro
-    box_pro = np.trunc(box_pro)
-    return box_pro
-
-
 # 四边形顶点排序，[top-left, top-right, bottom-right, bottom-left]
 def orderPoints(pts):
     rect = np.zeros((4, 2), dtype="float32")
@@ -71,36 +62,40 @@ def orderPoints(pts):
     return rect
 
 
-# 计算长宽
-def pointDistance(a, b):
-    return int(np.sqrt(np.sum(np.square(a - b))))
-
-
 # 透视变换
 def warpImage(image, box):
-    w, h = pointDistance(box[0], box[1]), \
-           pointDistance(box[1], box[2])
     dst_rect = np.array([[0, 0],
-                         [w - 1, 0],
-                         [w - 1, h - 1],
-                         [0, h - 1]], dtype='float32')
+                         [TARGET_W - 1, 0],
+                         [TARGET_W - 1, TARGET_H - 1],
+                         [0, TARGET_H - 1]], dtype='float32')
     M = cv2.getPerspectiveTransform(box, dst_rect)
-    warped = cv2.warpPerspective(image, M, (w, h))
+    warped = cv2.warpPerspective(image, M, (TARGET_W, TARGET_H))
     return warped
 
 
-if __name__ == '__main__':
-    path = '3.jpg'
-    outpath = 'new_result.jpg'
-    image = cv2.imread(path)
-    ratio = 900 / image.shape[0]
-    img = resizeImg(image)
-    binary_img = getCanny(img)
-    max_contour, max_area = findMaxContour(binary_img)
+def main_img_preprocess(origin_img):
+    shape = origin_img.shape
+    binary_img = get_binary_img(origin_img, 10)
+    max_contour, _ = findMaxContour(binary_img)
     boxes = getBoxPoint(max_contour)
-    boxes = adaPoint(boxes, ratio)
     boxes = orderPoints(boxes)
-    # 透视变化
-    warped = warpImage(image, boxes)
-    cv2.imshow('warpImage', warped)
-    cv2.waitKey(0)
+    for co in boxes:
+        if co[0] < EDGE+5:
+            co[0] = 0
+        if co[0] > shape[1] - EDGE - 5:
+            co[0] = shape[1] - 1
+        if co[1] < EDGE+5:
+            co[1] = 0
+        if co[1] > shape[0] - EDGE - 5:
+            co[1] = shape[0] - 1
+
+    warped = warpImage(img, boxes)
+    return warped
+
+
+# path = '4.jpg'
+# img = cv2.imread(path)
+# crop_img = main_img_preprocess(img)
+# cv2.imwrite('result.jpg', crop_img)
+# cv2.imshow('warpImage', crop_img)
+# cv2.waitKey(0)

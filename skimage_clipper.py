@@ -4,6 +4,7 @@ import numpy as np
 from skimage import exposure, filters, io, measure, transform
 from skimage.color import rgb2gray
 from skimage.morphology import closing, convex_hull_image, disk
+import time
 
 
 # 目标图片大小
@@ -85,8 +86,11 @@ def main_img_preprocess(origin_img):
     return crop_img
 
 
-# origin_img = io.imread('test5.jpg')
+# origin_img = io.imread('2.jpg')
+# ticks1 = time.time()
 # crop_img = main_img_preprocess(origin_img)
+# ticks2 = time.time()
+# print(ticks2-ticks1)
 # io.imshow(crop_img)
 # plt.show()
 # io.imsave('result.jpg', crop_img)
